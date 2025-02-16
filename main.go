@@ -48,6 +48,21 @@ func handlerRegister(st state, cmd command) error {
     return nil
 }
 
+func handlerUsers(st state, cmd command) error {
+    us, err := st.db.GetUsers(context.Background())
+    if err != nil {
+        fmt.Errorf("Problem getting users. %w", err)
+    }
+    for _, v := range us {
+        displayed_user := v.Name
+        if v.Name == st.c.CurrentUserName {
+            displayed_user += " (current)"
+        }
+        fmt.Printf("* %v\n", displayed_user)
+    }
+    return nil
+}
+
 func handlerReset(st state, cmd command) error {
     err := st.db.Reset(context.Background())
     if err != nil {
@@ -99,6 +114,7 @@ func main() {
     m_commands.register("login", handlerLogin)
     m_commands.register("register", handlerRegister)
     m_commands.register("reset", handlerReset)
+    m_commands.register("users", handlerUsers)
     args :=os.Args
     if len(args) < 2 {
         fmt.Println("Command needed")
