@@ -2,6 +2,7 @@ package main
 import _ "github.com/lib/pq"
 
 import (
+    "log"
     "github.com/githubtofu/gator/internal/config"
     "github.com/githubtofu/gator/internal/database"
     "github.com/google/uuid"
@@ -28,7 +29,6 @@ type commands struct {
 
 func handlerRegister(st state, cmd command) error {
     if len(cmd.args) == 0 {
-        fmt.Println("[command] No args provided")
         return fmt.Errorf("No arguments provided")
     }
     p := database.CreateUserParams{
@@ -40,7 +40,7 @@ func handlerRegister(st state, cmd command) error {
     
     u, err := st.db.CreateUser(context.Background(), p)
     if err != nil {
-        fmt.Printf("%w", err)
+        fmt.Errorf("User already exists. %w", err)
         os.Exit(1)
     }
     st.c.SetUser(u.Name)
@@ -48,15 +48,22 @@ func handlerRegister(st state, cmd command) error {
     return nil
 }
 
+func handlerReset(st state, cmd command) error {
+    err := st.db.Reset(context.Background())
+    if err != nil {
+        fmt.Errorf("Problem resetting. %w", err)
+    }
+    fmt.Println("Successfully reset")
+    return nil
+}
+
 func handlerLogin(st state, cmd command) error {
     if len(cmd.args) == 0 {
-        fmt.Println("[command] No args provided")
         return fmt.Errorf("No arguments provided")
     }
     u, err := st.db.GetUser(context.Background(), cmd.args[0])
     if err != nil {
-        fmt.Printf("%w", err)
-        os.Exit(1)
+        return fmt.Errorf("couldn't find user: %w", err)
     }
     st.c.SetUser(u.Name)
     fmt.Println("User", u.Name, "has logged in.")
@@ -91,6 +98,7 @@ func main() {
     m_commands.handler = make(map[string]func(state, command) error)
     m_commands.register("login", handlerLogin)
     m_commands.register("register", handlerRegister)
+    m_commands.register("reset", handlerReset)
     args :=os.Args
     if len(args) < 2 {
         fmt.Println("Command needed")
@@ -98,7 +106,6 @@ func main() {
     }
     m_command := command{name:args[1], args:args[2:]}
     if err := m_commands.runs(st, m_command); err != nil {
-        fmt.Printf("%w", err)
-        os.Exit(1)
+        log.Fatal(err)
     } 
 }
