@@ -10,20 +10,20 @@ type Config struct {
     CurrentUserName string `json:"current_user_name"`
 }
 
-func Read() Config {
+func Read() *Config {
     c := Config{}
     homedir, err := os.UserHomeDir()
     if err != nil {
-        return c
+        return &c
     }
     f, err := os.Open(homedir + "/.gatorconfig.json")
     if err != nil {
-        return c
+        return &c
     }
     if err := json.NewDecoder(f).Decode(&c); err != nil {
-        return c
+        return &c
     }
-    return c
+    return &c
 }
 
 func (c *Config) SetUser(u string) {
