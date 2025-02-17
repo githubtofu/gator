@@ -24,10 +24,10 @@ type command struct {
 }
 
 type commands struct {
-    handler map[string]func(state, command) error
+    handler map[string]func(*state, command) error
 }
 
-func handlerRegister(st state, cmd command) error {
+func handlerRegister(st *state, cmd command) error {
     if len(cmd.args) == 0 {
         return fmt.Errorf("No arguments provided")
     }
@@ -48,7 +48,7 @@ func handlerRegister(st state, cmd command) error {
     return nil
 }
 
-func handlerUsers(st state, cmd command) error {
+func handlerUsers(st *state, cmd command) error {
     us, err := st.db.GetUsers(context.Background())
     if err != nil {
         fmt.Errorf("Problem getting users. %w", err)
@@ -63,7 +63,7 @@ func handlerUsers(st state, cmd command) error {
     return nil
 }
 
-func handlerReset(st state, cmd command) error {
+func handlerReset(st *state, cmd command) error {
     err := st.db.Reset(context.Background())
     if err != nil {
         fmt.Errorf("Problem resetting. %w", err)
@@ -72,7 +72,7 @@ func handlerReset(st state, cmd command) error {
     return nil
 }
 
-func handlerLogin(st state, cmd command) error {
+func handlerLogin(st *state, cmd command) error {
     if len(cmd.args) == 0 {
         return fmt.Errorf("No arguments provided")
     }
@@ -85,11 +85,11 @@ func handlerLogin(st state, cmd command) error {
     return nil
 }
 
-func (c commands) register(name string, f func(state, command) error) {
+func (c commands) register(name string, f func(*state, command) error) {
     c.handler[name] = f
 }
 
-func (c commands) runs(st state, cmd command) error {
+func (c commands) runs(st *state, cmd command) error {
     this_func, ok := c.handler[cmd.name]
     if !ok {
         fmt.Println("[command] no such command")
@@ -110,23 +110,24 @@ func main() {
     }
     st.db = database.New(db)
     m_commands := commands{}
-    m_commands.handler = make(map[string]func(state, command) error)
+    m_commands.handler = make(map[string]func(*state, command) error)
     m_commands.register("login", handlerLogin)
     m_commands.register("register", handlerRegister)
     m_commands.register("reset", handlerReset)
     m_commands.register("users", handlerUsers)
     m_commands.register("agg", handlerAgg)
-    m_commands.register("addfeed", handlerAddFeed)
+    m_commands.register("addfeed", middlewareLoggedIn(handlerAddFeed))
     m_commands.register("feeds", handlerFeeds)
-    m_commands.register("following", handlerFollowing)
-    m_commands.register("follow", handlerFollow)
+    m_commands.register("following", middlewareLoggedIn(handlerFollowing))
+    m_commands.register("follow", middlewareLoggedIn(handlerFollow))
+    m_commands.register("unfollow", middlewareLoggedIn(handlerUnfollow))
     args :=os.Args
     if len(args) < 2 {
         fmt.Println("Command needed")
         os.Exit(1)
     }
     m_command := command{name:args[1], args:args[2:]}
-    if err := m_commands.runs(st, m_command); err != nil {
+    if err := m_commands.runs(&st, m_command); err != nil {
         log.Fatal(err)
     } 
 }

@@ -68,7 +68,7 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
     return &feed, nil
 }
 
-func handlerAgg(st state, cmd command) error {
+func handlerAgg(st *state, cmd command) error {
     f, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
     if err != nil {
         return fmt.Errorf("Cannot create request. %w", err)
@@ -82,13 +82,19 @@ func handlerAgg(st state, cmd command) error {
     return nil
 }
 
-func handlerAddFeed(st state, cmd command) error {
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+    return func(s *state, cmd command) error {
+        cUser, err := s.db.GetUser(context.Background(), s.c.CurrentUserName)
+        if err != nil {
+            return err
+        }
+        return handler(s, cmd, cUser)
+    }
+}
+
+func handlerAddFeed(st *state, cmd command, user database.User) error {
     if len(cmd.args) != 2 {
         return fmt.Errorf("Wrong number of arguments provided")
-    }
-    cUser, err := st.db.GetUser(context.Background(), st.c.CurrentUserName)
-    if err != nil {
-        return fmt.Errorf("Cannot get current user. %w", err)
     }
     feedParams := database.CreateFeedParams{
         ID: uuid.New(),
@@ -96,7 +102,7 @@ func handlerAddFeed(st state, cmd command) error {
         UpdatedAt: time.Now(),
         Name:   cmd.args[0],
         Url:    cmd.args[1],
-        UserID: cUser.ID,
+        UserID: user.ID,
     }
     f, err := st.db.CreateFeed(context.Background(), feedParams)
     if err != nil {
@@ -107,7 +113,7 @@ func handlerAddFeed(st state, cmd command) error {
         ID: uuid.New(),
         CreatedAt: time.Now(),
         UpdatedAt: time.Now(),
-        UserID: cUser.ID,
+        UserID: user.ID,
         FeedID: f.ID,
     } 
     if _, err := st.db.CreateFeedFollow(context.Background(), ffParams); err != nil {
@@ -116,7 +122,7 @@ func handlerAddFeed(st state, cmd command) error {
     return nil
 }
 
-func handlerFeeds(st state, cmd command) error {
+func handlerFeeds(st *state, cmd command) error {
     if len(cmd.args) > 0 {
         return fmt.Errorf("Wrong number of arguments provided")
     }
@@ -134,13 +140,9 @@ func handlerFeeds(st state, cmd command) error {
     return nil
 }
 
-func handlerFollow(st state, cmd command) error {
+func handlerFollow(st *state, cmd command, user database.User) error {
     if len(cmd.args) != 1 {
-        return fmt.Errorf("Wrong number of arguments provided")
-    }
-    cUser, err := st.db.GetUser(context.Background(), st.c.CurrentUserName)
-    if err != nil {
-        return fmt.Errorf("Cannot get current user. %w", err)
+        return fmt.Errorf("[handlerFollow] Wrong number of arguments provided")
     }
     cFeed, err := st.db.GetFeedByUrl(context.Background(), cmd.args[0])
     if err != nil {
@@ -150,7 +152,7 @@ func handlerFollow(st state, cmd command) error {
         ID: uuid.New(),
         CreatedAt: time.Now(),
         UpdatedAt: time.Now(),
-        UserID: cUser.ID,
+        UserID: user.ID,
         FeedID: cFeed.ID,
     }
     ffRow, err := st.db.CreateFeedFollow(context.Background(), ffParams)
@@ -161,19 +163,30 @@ func handlerFollow(st state, cmd command) error {
     return nil
 }
 
-func handlerFollowing(st state, cmd command) error {
+func handlerUnfollow(st *state, cmd command, user database.User) error {
+    if len(cmd.args) != 1 {
+        return fmt.Errorf("[handlerUnfollow] Wrong number of arguments provided")
+    }
+    dffParams := database.DeleteFeedFollowParams{
+        UserID: user.ID,
+        Url   : cmd.args[0], 
+    }
+    err := st.db.DeleteFeedFollow(context.Background(), dffParams)
+    if err != nil {
+        return err
+    }
+    return nil
+}
+
+func handlerFollowing(st *state, cmd command, user database.User) error {
     if len(cmd.args) > 0 {
         return fmt.Errorf("Wrong number of arguments provided")
     }
-    cUser, err := st.db.GetUser(context.Background(), st.c.CurrentUserName)
-    if err != nil {
-        return fmt.Errorf("Cannot get current user. %w", err)
-    }
-    cFeeds, err := st.db.GetFeedFollowsForUser(context.Background(), cUser.ID)
+    cFeeds, err := st.db.GetFeedFollowsForUser(context.Background(), user.ID)
     if err != nil {
         return fmt.Errorf("Cannot get feed follows for user. %w", err)
     }
-    fmt.Println(cUser.Name, "follows")
+    fmt.Println(user.Name, "follows")
     for _, f := range(cFeeds) {
         fmt.Println(f.FeedName)
     }
