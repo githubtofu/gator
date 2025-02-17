@@ -115,6 +115,9 @@ func main() {
     m_commands.register("register", handlerRegister)
     m_commands.register("reset", handlerReset)
     m_commands.register("users", handlerUsers)
+    m_commands.register("agg", handlerAgg)
+    m_commands.register("addfeed", handlerAddFeed)
+    m_commands.register("feeds", handlerFeeds)
     args :=os.Args
     if len(args) < 2 {
         fmt.Println("Command needed")
