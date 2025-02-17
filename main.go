@@ -118,6 +118,8 @@ func main() {
     m_commands.register("agg", handlerAgg)
     m_commands.register("addfeed", handlerAddFeed)
     m_commands.register("feeds", handlerFeeds)
+    m_commands.register("following", handlerFollowing)
+    m_commands.register("follow", handlerFollow)
     args :=os.Args
     if len(args) < 2 {
         fmt.Println("Command needed")

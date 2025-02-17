@@ -23,6 +23,9 @@ DELETE FROM users WHERE true;
 -- name: GetFeeds :many
 SELECT * FROM feeds;
 
+-- name: GetFeedByUrl :one
+SELECT * FROM feeds WHERE url=$1;
+
 -- name: CreateFeed :one
 INSERT INTO feeds (id, created_at, updated_at, name, url, user_id)
 VALUES (
@@ -34,6 +37,13 @@ VALUES (
     $6
 )
 RETURNING *;
+
+-- name: GetFeedFollowsForUser :many
+SELECT feed_follows.*, feeds.name AS feed_name, users.name AS user_name
+FROM feed_follows 
+INNER JOIN users ON feed_follows.user_id=users.id
+INNER JOIN feeds ON feed_follows.feed_id=feeds.id
+WHERE feed_follows.user_id=$1;
 
 -- name: CreateFeedFollow :one
 WITH inserted_feed_follow AS (

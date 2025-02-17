@@ -103,6 +103,16 @@ func handlerAddFeed(st state, cmd command) error {
         return fmt.Errorf("Cannot create feed. %w", err)
     }
     fmt.Printf("NEW FEED:%+v\n", f)
+    ffParams := database.CreateFeedFollowParams{
+        ID: uuid.New(),
+        CreatedAt: time.Now(),
+        UpdatedAt: time.Now(),
+        UserID: cUser.ID,
+        FeedID: f.ID,
+    } 
+    if _, err := st.db.CreateFeedFollow(context.Background(), ffParams); err != nil {
+        return fmt.Errorf("Cannot create feed follow. %w", err)
+    }
     return nil
 }
 
@@ -125,4 +135,47 @@ func handlerFeeds(st state, cmd command) error {
 }
 
 func handlerFollow(st state, cmd command) error {
+    if len(cmd.args) != 1 {
+        return fmt.Errorf("Wrong number of arguments provided")
+    }
+    cUser, err := st.db.GetUser(context.Background(), st.c.CurrentUserName)
+    if err != nil {
+        return fmt.Errorf("Cannot get current user. %w", err)
+    }
+    cFeed, err := st.db.GetFeedByUrl(context.Background(), cmd.args[0])
+    if err != nil {
+        return fmt.Errorf("Cannot get feed by url. %w", err)
+    }
+    ffParams := database.CreateFeedFollowParams{
+        ID: uuid.New(),
+        CreatedAt: time.Now(),
+        UpdatedAt: time.Now(),
+        UserID: cUser.ID,
+        FeedID: cFeed.ID,
+    }
+    ffRow, err := st.db.CreateFeedFollow(context.Background(), ffParams)
+    if err != nil {
+        return fmt.Errorf("Cannot create feed follow. %w", err)
+    }
+    fmt.Println(ffRow.UserName, "follows", ffRow.FeedName)
+    return nil
+}
+
+func handlerFollowing(st state, cmd command) error {
+    if len(cmd.args) > 0 {
+        return fmt.Errorf("Wrong number of arguments provided")
+    }
+    cUser, err := st.db.GetUser(context.Background(), st.c.CurrentUserName)
+    if err != nil {
+        return fmt.Errorf("Cannot get current user. %w", err)
+    }
+    cFeeds, err := st.db.GetFeedFollowsForUser(context.Background(), cUser.ID)
+    if err != nil {
+        return fmt.Errorf("Cannot get feed follows for user. %w", err)
+    }
+    fmt.Println(cUser.Name, "follows")
+    for _, f := range(cFeeds) {
+        fmt.Println(f.FeedName)
+    }
+    return nil
 }
