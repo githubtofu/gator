@@ -4,7 +4,7 @@ import (
     "time"
     "github.com/githubtofu/gator/internal/database"
     "github.com/google/uuid"
-    "html"
+    //"html"
     "context"
     "net/http"
     "fmt"
@@ -28,6 +28,47 @@ type RSSItem struct {
 	PubDate     string `xml:"pubDate"`
 }
 
+func scrapeFeeds(st *state) error {
+    ctx := context.Background()
+    f, err := st.db.GetNextFeedToFetch(ctx)
+    if err != nil {
+        return fmt.Errorf("Cannot get next feed. %w", err)
+    }
+    fmt.Println("[scrape]Got next feed")
+    st.db.MarkFeedFetched(ctx, f.ID)
+    rf, err := fetchFeed(ctx, f.Url)
+    if err != nil {
+        return fmt.Errorf("Cannot fetch feeds. %w", err)
+    }
+    fmt.Println("[scrape]Got next feed fetched .. stopping at get feed by url?")
+    fmt.Println("LINK:", f.Url)
+    _, err = st.db.GetFeedByUrl(ctx, f.Url)
+    if err != nil {
+        return fmt.Errorf("Cannot get feed by url. %w", err)
+    }
+    fmt.Println("[scrape]Got feed, Length:", len(rf.Channel.Item))
+    for i, item := range(rf.Channel.Item) {
+        fmt.Println("TITLE#", i, ":", item.Title, "PUB:", item.PubDate)
+        /*
+        cpParams := database.CreatePostParams{
+            ID: uuid.New(),
+            CreatedAt: time.Now(),
+            UpdatedAt: time.Now(),
+            Title:  item.Title,
+            Url:    item.Link,
+            Description: item.Description,
+            PublishedAt: time.Now(),
+            FeedID: uuid.New(),
+        }
+        _, err := st.db.CreatePost(ctx, cpParams)
+        if err != nil {
+            return fmt.Errorf("Cannot crete post. %w", err)
+        }
+        */
+    }
+    fmt.Println("[scrape]Finished...  next feed fetched")
+    return nil
+}
 
 func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
     req, err := http.NewRequestWithContext(ctx, "GET", feedURL, nil)
@@ -47,6 +88,7 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
     if err := xml.Unmarshal(data, &feed); err != nil {
         return nil, fmt.Errorf("Cannot unmarshal from response. %w", err)
     }
+    /*
     fmt.Println("[FEED]Channel++++++++++++")
     fmt.Println("TITLE:", feed.Channel.Title)
     fmt.Println("DESC:", feed.Channel.Description)
@@ -65,10 +107,25 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
         fmt.Println("TITLE2#", i, ":", item.Title)
         fmt.Println("DESC2#", i, ":", item.Description)
     }
+    */
     return &feed, nil
 }
 
 func handlerAgg(st *state, cmd command) error {
+    if len(cmd.args) != 1 {
+        return fmt.Errorf("Wrong number of arguments. needs time duration between fetches")
+    }
+    dur, err := time.ParseDuration(cmd.args[0])
+    if err != nil {
+        return fmt.Errorf("Cannot parse duration. %w", err)
+    }
+    fmt.Println("Collecting feeds every", cmd.args[0])
+    ticker := time.NewTicker(dur)
+    for ;; <-ticker.C {
+        fmt.Println("[handlerAgg] Ticker...")
+        scrapeFeeds(st)
+    }
+    /*
     f, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
     if err != nil {
         return fmt.Errorf("Cannot create request. %w", err)
@@ -79,6 +136,7 @@ func handlerAgg(st *state, cmd command) error {
     fmt.Println("==========Item ===============")
     fmt.Printf("%v\n", f.Channel.Item[len(f.Channel.Item)-1].Description)
     fmt.Println("=========================")
+    */
     return nil
 }
 
@@ -93,8 +151,9 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 }
 
 func handlerAddFeed(st *state, cmd command, user database.User) error {
+    fmt.Println("[AddFeed] In..")
     if len(cmd.args) != 2 {
-        return fmt.Errorf("Wrong number of arguments provided")
+        return fmt.Errorf("Wrong number of arguments provided. Needs name and url.")
     }
     feedParams := database.CreateFeedParams{
         ID: uuid.New(),

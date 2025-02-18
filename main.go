@@ -127,6 +127,7 @@ func main() {
         os.Exit(1)
     }
     m_command := command{name:args[1], args:args[2:]}
+    fmt.Println("Running", m_command.name)
     if err := m_commands.runs(&st, m_command); err != nil {
         log.Fatal(err)
     } 

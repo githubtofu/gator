@@ -38,6 +38,28 @@ VALUES (
 )
 RETURNING *;
 
+-- name: CreatePost :one
+INSERT INTO posts (id, created_at, updated_at, title, url, description, published_at, feed_id)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8
+)
+RETURNING *;
+
+-- name: GetPostsForUser :many
+SELECT * FROM posts 
+INNER JOIN feed_follows ON feed_follows.feed_id=feeds.id
+INNER JOIN feeds ON posts.feed_id=feeds.id
+WHERE feed_follows.user_id=$1
+order by posts.published_at desc
+limit $2;
+
 -- name: GetFeedFollowsForUser :many
 SELECT feed_follows.*, feeds.name AS feed_name, users.name AS user_name
 FROM feed_follows 
@@ -72,3 +94,13 @@ WHERE feed_id=(
     SELECT id FROM feeds
     WHERE url=$2
 ) AND feed_follows.user_id=$1;
+
+-- name: MarkFeedFetched :exec
+UPDATE feeds
+SET last_fetched_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+WHERE id=$1;
+
+-- name: GetNextFeedToFetch :one
+SELECT * FROM feeds
+ORDER BY last_fetched_at NULLS FIRST
+LIMIT 1;
