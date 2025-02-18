@@ -139,8 +139,8 @@ type CreatePostParams struct {
 	UpdatedAt   time.Time
 	Title       string
 	Url         string
-	Description string
-	PublishedAt time.Time
+	Description sql.NullString
+	PublishedAt sql.NullTime
 	FeedID      uuid.UUID
 }
 
@@ -366,8 +366,8 @@ type GetPostsForUserRow struct {
 	UpdatedAt     time.Time
 	Title         string
 	Url           string
-	Description   string
-	PublishedAt   time.Time
+	Description   sql.NullString
+	PublishedAt   sql.NullTime
 	FeedID        uuid.UUID
 	ID_2          uuid.UUID
 	CreatedAt_2   time.Time

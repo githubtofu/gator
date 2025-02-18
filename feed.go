@@ -6,6 +6,7 @@ import (
     "github.com/google/uuid"
     //"html"
     "context"
+    "database/sql"
     "net/http"
     "fmt"
     "io"
@@ -48,23 +49,32 @@ func scrapeFeeds(st *state) error {
     }
     fmt.Println("[scrape]Got feed, Length:", len(rf.Channel.Item))
     for i, item := range(rf.Channel.Item) {
-        fmt.Println("TITLE#", i, ":", item.Title, "PUB:", item.PubDate)
-        /*
+        fmt.Println("TITLE#", i, ":", item.Title, "PUB:", item.PubDate, "LINK:", item.Link)
+        publishedAt := sql.NullTime{}
+        if t, err := time.Parse(time.RFC1123Z, item.PubDate); err == nil {
+			publishedAt = sql.NullTime{
+				Time:  t,
+				Valid: true,
+			}
+		}
         cpParams := database.CreatePostParams{
             ID: uuid.New(),
-            CreatedAt: time.Now(),
-            UpdatedAt: time.Now(),
+            CreatedAt: time.Now().UTC(),
+            UpdatedAt: time.Now().UTC(),
             Title:  item.Title,
             Url:    item.Link,
-            Description: item.Description,
-            PublishedAt: time.Now(),
-            FeedID: uuid.New(),
+            Description: sql.NullString{
+                String: item.Description,
+                Valid: true,
+            },
+            PublishedAt: publishedAt,
+            FeedID: f.ID,
         }
         _, err := st.db.CreatePost(ctx, cpParams)
         if err != nil {
             return fmt.Errorf("Cannot crete post. %w", err)
+            fmt.Println(cpParams.Url)
         }
-        */
     }
     fmt.Println("[scrape]Finished...  next feed fetched")
     return nil
